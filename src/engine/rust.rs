@@ -38,18 +38,26 @@ pub async fn run(
 	wallet_dir: &Path,
 	ticker: &str,
 	max_fee: u64,
+	max_attempts: usize,
 ) -> Result<()> {
 	let m = MinerBuilder { network, electrumx, wallet_dir, ticker, max_fee }.build()?;
 
-	#[allow(clippy::never_loop)]
-	loop {
+	let mut attempts = 0;
+	while attempts < max_attempts {
 		for w in &m.wallets {
+			tracing::info!("mining attempt {}/{}", attempts + 1, max_attempts);
+
 			m.mine(w).await?;
 
-			// Test only.
-			// return Ok(());
+			attempts += 1;
+			if attempts >= max_attempts {
+				tracing::info!("max attempts reached");
+				break;
+			}
 		}
 	}
+
+	Ok(())
 }
 
 #[derive(Debug)]

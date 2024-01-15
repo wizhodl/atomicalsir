@@ -19,17 +19,27 @@ pub async fn run(
 	atomicals_js_dir: &Path,
 	ticker: &str,
 	max_fee: u64,
+	max_attempts: usize,
 ) -> Result<()> {
 	let ws = Wallet::load_wallets(atomicals_js_dir.join("wallets"));
 
-	loop {
+	let mut attempts = 0;
+	while attempts < max_attempts {
 		for w in &ws {
 			tracing::info!("");
-			tracing::info!("");
+			tracing::info!("mining attempt {}/{}", attempts + 1, max_attempts);
 
 			w.mine(network, electrumx, ticker, max_fee).await?;
+
+			attempts += 1;
+			if attempts >= max_attempts {
+				tracing::info!("max attempts reached");
+				break;
+			}
 		}
 	}
+
+	Ok(())
 }
 
 impl Wallet {

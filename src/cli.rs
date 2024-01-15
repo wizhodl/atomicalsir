@@ -60,16 +60,28 @@ pub struct Cli {
 	/// Ticker of the network to mine on.
 	#[arg(long, value_name = "NAME")]
 	ticker: String,
+	/// Maximum attempts to mine.
+	#[arg(long, value_name = "VALUE", default_value_t = 1)]
+	max_attempts: usize,
 }
 impl Cli {
 	pub async fn run(self) -> Result<()> {
-		let Cli { rust_engine, js_engine, network, max_fee, electrumx, ticker } = self;
+		let Cli { rust_engine, js_engine, network, max_fee, electrumx, ticker, max_attempts } =
+			self;
 		let ticker = ticker.to_lowercase();
 
 		if let Some(d) = js_engine {
-			js::run(network.as_atomical_js_network(), &electrumx, &d, &ticker, max_fee).await?;
+			js::run(
+				network.as_atomical_js_network(),
+				&electrumx,
+				&d,
+				&ticker,
+				max_fee,
+				max_attempts,
+			)
+			.await?;
 		} else if let Some(d) = rust_engine {
-			rust::run(network.into(), &electrumx, &d, &ticker, max_fee).await?;
+			rust::run(network.into(), &electrumx, &d, &ticker, max_fee, max_attempts).await?;
 		}
 
 		Ok(())
