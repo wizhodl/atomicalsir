@@ -38,20 +38,22 @@ pub async fn run(
 	wallet_dir: &Path,
 	ticker: &str,
 	max_fee: u64,
-	max_attempts: usize,
+	max_mints: usize,
 ) -> Result<()> {
 	let m = MinerBuilder { network, electrumx, wallet_dir, ticker, max_fee }.build()?;
 
-	let mut attempts = 0;
-	while attempts < max_attempts {
+	let mut mints = 0;
+	while mints < max_mints {
 		for w in &m.wallets {
-			tracing::info!("mining attempt {}/{}", attempts + 1, max_attempts);
+			tracing::info!("mining {}/{}", mints + 1, max_mints);
 
+			// TODO mints 在 mine 成功时 +1，失败时继续
+			// 但需要确认失败时是否可以安全地继续
 			m.mine(w).await?;
 
-			attempts += 1;
-			if attempts >= max_attempts {
-				tracing::info!("max attempts reached");
+			mints += 1;
+			if mints >= max_mints {
+				tracing::info!("max mints reached");
 				break;
 			}
 		}
