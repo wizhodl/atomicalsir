@@ -444,7 +444,7 @@ struct MinerBuilder<'a> {
 impl<'a> MinerBuilder<'a> {
 	fn build(self) -> Result<Miner> {
 		let api =
-			ElectrumXBuilder::default().network(self.network).base_uri(self.electrumx).build()?;
+			ElectrumXBuilder::default().network(self.network).base_uris(self.electrumx).build()?;
 		let wallets = RawWallet::load_wallets(self.wallet_dir)
 			.into_iter()
 			.map(|rw| Wallet::from_raw_wallet(rw, self.network))
