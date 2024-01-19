@@ -302,6 +302,7 @@ impl Miner {
 
 	async fn prepare_data(&self, wallet: &Wallet) -> Result<Data> {
 		let id = self.api.get_by_ticker(&self.ticker).await?.atomical_id;
+		tracing::info!("ticker {ticker}, id {id}", ticker = self.ticker, id = id);
 		let response = self.api.get_ft_info(id).await?;
 		let global = response.global.unwrap();
 		let ft = response.result;

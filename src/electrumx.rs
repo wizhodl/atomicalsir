@@ -4,6 +4,7 @@ pub mod r#type;
 use r#type::*;
 
 // std
+// std
 use std::{str::FromStr, time::Duration};
 // crates.io
 use bitcoin::{Address, Network};
@@ -127,6 +128,7 @@ pub struct ElectrumX {
 	pub client: ReqwestClient,
 	pub network: Network,
 	pub base_uri: String,
+	pub max_retries: usize,
 }
 impl Config for ElectrumX {
 	fn network(&self) -> &Network {
@@ -144,11 +146,41 @@ impl Http for ElectrumX {
 		P: Serialize,
 		R: DeserializeOwned,
 	{
-		let resp = self.client.post(uri.as_ref()).json(&params).send().await?.text().await?;
+		let mut attempts = 0;
+		let retry_delay = Duration::from_secs(2);
 
-		tracing::debug!("{resp}");
+		// 重试逻辑的闭包
+		let try_request = || async {
+			match self.client.post(uri.as_ref()).json(&params).send().await {
+				Ok(response) => {
+					let resp_text = response.text().await?;
+					match serde_json::from_str(&resp_text) {
+						Ok(parsed) => Ok(Some(parsed)), // 成功解析时返回结果
+						Err(e) => {
+							tracing::info!("request {} parse response failed: {}", uri.as_ref(), e);
+							Ok(None) // 解析失败时不返回错误，而是指示重试
+						},
+					}
+				},
+				Err(e) => {
+					tracing::info!("request {} failed: {}", uri.as_ref(), e);
+					Ok(None) // 请求失败时不返回错误，而是指示重试
+				},
+			}
+		};
 
-		Ok(serde_json::from_str(&resp)?)
+		loop {
+			match try_request().await {
+				Ok(Some(result)) => return Ok(result), // 成功获取结果
+				Ok(None) if attempts < self.max_retries => {
+					attempts += 1;
+					tokio::time::sleep(retry_delay).await;
+				},
+				Ok(None) =>
+					return Err(anyhow::Error::msg("Exceeded maximum retry attempts").into()), /* 超出重试次数 */
+				Err(e) => return Err(e), // 处理请求发送过程中的不可恢复错误
+			}
+		}
 	}
 }
 
@@ -178,6 +210,7 @@ impl ElectrumXBuilder {
 			client: ReqwestClientBuilder::new().timeout(Duration::from_secs(30)).build()?,
 			network: self.network,
 			base_uri: self.base_uri,
+			max_retries: 3, // 设置默认的重试次数
 		})
 	}
 }

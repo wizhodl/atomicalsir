@@ -1,0 +1,33 @@
+{
+	// 使用 IntelliSense 了解相关属性。
+	// 悬停以查看现有属性的描述。
+	// 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug executable 'atomicalsir'",
+			"cargo": {
+				"args": ["build", "--bin=atomicalsir", "--package=atomicalsir"],
+				"filter": {
+					"name": "atomicalsir",
+					"kind": "bin"
+				}
+			},
+			"args": [
+				"--ticker",
+				"atom",
+				"--rust-engine",
+				"/Users/qiwen/workspace/seven/atomicals-js/wallets",
+				"--network",
+				"testnet",
+				"--electrumx",
+				"https://eptestnet.atomicals.xyz/proxy",
+				"--max-mints",
+				"1"
+			],
+			"cwd": "${workspaceFolder}"
+		}
+	]
+}
