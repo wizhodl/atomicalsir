@@ -5,7 +5,7 @@ use r#type::*;
 
 // std
 // std
-use std::{str::FromStr, time::Duration};
+use std::{str::FromStr, sync::Mutex, time::Duration};
 // crates.io
 use bitcoin::{Address, Network};
 use reqwest::{Client as ReqwestClient, ClientBuilder as ReqwestClientBuilder};
@@ -133,6 +133,7 @@ pub struct ElectrumX {
 	pub network: Network,
 	pub base_uris: Vec<String>,
 	pub max_retries: usize,
+	last_successful_uri_index: Mutex<usize>,
 }
 impl Config for ElectrumX {
 	fn network(&self) -> &Network {
@@ -152,10 +153,13 @@ impl Http for ElectrumX {
 	{
 		let mut attempts = 0;
 		let retry_delay = Duration::from_secs(2);
-		let mut uri_index = 0;
+		let mut uri_change_count = 0;
 
-		// TODO
-		// 现在每次请求都是从 uri_index 0 开始，可以优化从上次成功的 URI 开始，需处理多线程的情况
+		// 从 Mutex 中获取当前的 URI 索引
+		let mut uri_index = {
+			let lock = self.last_successful_uri_index.lock().unwrap();
+			*lock
+		};
 
 		loop {
 			let uri = format!("{}/{}", self.base_uris[uri_index], endpoint.as_ref());
@@ -164,7 +168,14 @@ impl Http for ElectrumX {
 				Ok(response) => {
 					let resp_text = response.text().await?;
 					match serde_json::from_str(&resp_text) {
-						Ok(parsed) => return Ok(parsed),
+						Ok(parsed) => {
+							// 在单独的作用域中更新 last_successful_uri_index
+							{
+								let mut lock = self.last_successful_uri_index.lock().unwrap();
+								*lock = uri_index;
+							}
+							return Ok(parsed);
+						},
 						Err(e) => {
 							tracing::info!("request {} parse response failed: {}", uri, e);
 							// 解析失败时继续尝试
@@ -178,8 +189,9 @@ impl Http for ElectrumX {
 			}
 
 			if attempts >= self.max_retries {
-				if uri_index < self.base_uris.len() - 1 {
-					uri_index += 1; // 切换到下一个 URI
+				if uri_change_count < self.base_uris.len() - 1 {
+					uri_index = (uri_index + 1) % self.base_uris.len();
+					uri_change_count += 1;
 					tracing::info!("switching to URI {}", self.base_uris[uri_index]);
 					attempts = 0; // 重置尝试次数
 				} else {
@@ -221,6 +233,7 @@ impl ElectrumXBuilder {
 			network: self.network,
 			base_uris: self.base_uris,
 			max_retries: 3, // 设置默认的重试次数
+			last_successful_uri_index: Mutex::new(0),
 		})
 	}
 }
