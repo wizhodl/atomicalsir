@@ -322,6 +322,9 @@ impl Miner {
 		if ft.dft_info.mint_count >= ft.max_mints {
 			Err(anyhow::anyhow!("max mints reached"))?;
 		}
+		if ft.mint_bitworkr.as_deref().filter(|s| !s.is_empty()).is_some() {
+			Err(anyhow::anyhow!("bitworkr is not supported"))?;
+		}
 
 		let secp = Secp256k1::new();
 		let satsbyte = if self.network == Network::Bitcoin {
