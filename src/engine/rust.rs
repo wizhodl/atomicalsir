@@ -1,5 +1,7 @@
 // std
 use std::{
+	fs::{self, OpenOptions},
+	io::Write,
 	ops::Range,
 	path::Path,
 	str::FromStr,
@@ -9,6 +11,9 @@ use std::{
 	},
 	thread::{self, JoinHandle},
 };
+
+use chrono::Utc;
+
 // crates.io
 use bitcoin::{
 	absolute::LockTime,
@@ -219,7 +224,29 @@ impl Miner {
 		// TODO: If no solution found.
 		let commit_tx = maybe_commit_tx.lock().unwrap().take().unwrap();
 
-		self.api.broadcast(encode::serialize_hex(&commit_tx)).await?;
+		let file_path = format!("{}.csv", wallet.funding.address);
+		let mut file = OpenOptions::new().write(true).append(true).create(true).open(&file_path)?;
+
+		if fs::metadata(&file_path)?.len() == 0 {
+			// 如果文件是新创建的，添加头部
+			writeln!(file, "txType,txResult,time,feePerByte,txid,rawTx")?;
+		}
+
+		let commit_tx_result = match self.api.broadcast(encode::serialize_hex(&commit_tx)).await {
+			Ok(_) => "success",
+			Err(_) => "fail",
+		};
+		let commit_tx_time = Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
+		let commit_tx_raw = encode::serialize_hex(&commit_tx);
+		writeln!(
+			file,
+			"commitTx,{},{},{},{},{}",
+			commit_tx_result,
+			commit_tx_time,
+			satsbyte,
+			commit_tx.txid(),
+			commit_tx_raw
+		)?;
 
 		let commit_txid = commit_tx.txid();
 		let commit_txid_ = self
@@ -295,7 +322,21 @@ impl Miner {
 		tracing::info!("reveal txid {reveal_txid}");
 		tracing::info!("reveal tx {reveal_tx:#?}");
 
-		self.api.broadcast(encode::serialize_hex(&reveal_tx)).await?;
+		let reveal_tx_result = match self.api.broadcast(encode::serialize_hex(&reveal_tx)).await {
+			Ok(_) => "success",
+			Err(_) => "fail",
+		};
+		let reveal_tx_time = Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
+		let reveal_tx_raw = encode::serialize_hex(&reveal_tx);
+		writeln!(
+			file,
+			"revealTx,{},{},{},{},{}",
+			reveal_tx_result,
+			reveal_tx_time,
+			satsbyte,
+			reveal_tx.txid(),
+			reveal_tx_raw
+		)?;
 
 		Ok(())
 	}
