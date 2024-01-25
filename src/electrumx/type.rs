@@ -97,8 +97,7 @@ pub struct Ft {
 #[derive(Debug, Deserialize)]
 pub struct Bitwork {
 	pub bitworkc: String,
-	// TODO: Check the real type.
-	pub bitworkr: Option<()>,
+	pub bitworkr: Option<String>,
 }
 #[derive(Debug, Deserialize)]
 pub struct TickerStatus {
@@ -135,6 +134,7 @@ pub struct Fields {
 #[derive(Debug, Deserialize)]
 pub struct Args {
 	pub bitworkc: String,
+	pub bitworkr: Option<String>,
 	pub max_mints: u64,
 	pub mint_amount: u64,
 	pub mint_bitworkc: String,

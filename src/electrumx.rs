@@ -102,11 +102,21 @@ pub trait Api: Config + Http {
 		loop {
 			for u in self.get_unspent_address(address.as_ref()).await? {
 				if u.atomicals.is_empty() && u.value >= satoshis {
+					tracing::info!(
+						"Detected Funding UTXO {txid}:{vout}) with value {value} for funding...",
+						txid = u.txid,
+						vout = u.vout,
+						value = u.value
+					);
 					return Ok(u);
 				}
 			}
 
-			tracing::info!("waiting for UTXO...");
+			tracing::info!(
+				"WAITING for UTXO... UNTIL {btc} BTC RECEIVED AT {addr}",
+				btc = satoshis as f64 / 100000000.,
+				addr = address.as_ref()
+			);
 
 			time::sleep(Duration::from_secs(5)).await;
 		}
@@ -212,6 +222,14 @@ pub struct ElectrumXBuilder {
 	pub base_uris: Vec<String>,
 }
 impl ElectrumXBuilder {
+	#[cfg(test)]
+	pub fn testnet() -> Self {
+		Self {
+			network: Network::Testnet,
+			base_uris: vec!["https://eptestnet.atomicals.xyz/proxy".into()],
+		}
+	}
+
 	pub fn network(mut self, network: Network) -> Self {
 		self.network = network;
 
